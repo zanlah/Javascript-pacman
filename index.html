@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>pacman</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        html,
+        body {
+            font-family: 'Press Start 2P', cursive;
+            color: white;
+            background-color: #3f3b3b;
+        }
+
+        .center {
+
+            margin: 0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        canvas {
+            background-color: #1f1f1f;
+            border: solid 2px black;
+        }
+
+        .overlay {
+            text-align: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, .5);
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            display: none;
+        }
+
+        .overlay p {
+            font-size: 20px;
+        }
+
+        .score {
+            margin-bottom: 5px;
+        }
+
+        .button {
+            background-color: #1919a6;
+            padding: 20px 10px;
+            text-transform: uppercase;
+            color: white;
+            font-family: 'Press Start 2P', cursive;
+            border: none;
+        }
+       
+    </style>
+</head>
+
+<body>
+    <h2 style="text-align:center">Pacman <br><span style="font-size: .7em;">(made by Kenan Dugonjić)</span></h2>
+    <div class="center">
+
+        <div class="score">Score: <span id="score"></span></div>
+        <div style="position: relative;">
+            <canvas width="800" height="600"></canvas>
+            <div class="overlay" id="gameEndOverlay">
+                <div class="center">
+                    <h2>Konec igre</h2>
+                    <h4>Score: <span id="scoreEnd"></span></h4>
+                    <button onclick="location.reload();" class="button">Ponovi</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+
+</body>
+<script src="stopnje.js"></script>
+<script>
+    var canvas = document.querySelector('canvas');
+    var c = canvas.getContext('2d');
+    var framesPerSecond = 60;
+    var Px = 60;
+    var Py = 60;
+    var erlierDirection = "";
+    var premove = "";
+    var smer = "stop";
+    var novaSmer = "";
+    var ghosts = [
+        [],
+        [],
+        [],
+        []
+
+    ]
+    var numberOfTicsGhost = 0;
+    var powerUps = [];
+    var availibleDirections = ["up", "down", "left", "right"];
+    var pravilnaPot = [];
+    var pravilnaPotFootprint = [];
+    var hasChanged = false;
+    var invincibility = 0;
+    var startOfInvincibility = 0;
+    var invincibilityTime = 10;
+    var score = -10;
+    var gameEnd = 0;
+    var numberOfTics = 0;
+    var img = new Image();
+    img.src = 'img/pacman_0_left.png';
+    var ghostImg = new Image();
+    ghostImg.src = 'img/pacman_0_left.png';
+    document.addEventListener('keyup', logKey);
+
+    function logKey(e) {
+        console.log(e.code);
+        switch (e.code) {
+            case e = "ArrowUp":
+                novaSmer = "up";
+                premove = "up";
+                break;
+            case e = "ArrowDown":
+                novaSmer = "down";
+                premove = "down";
+                break;
+            case e = "ArrowLeft":
+                novaSmer = "left";
+                premove = "left";
+                break;
+            case e = "ArrowRight":
+                novaSmer = "right";
+                premove = "right";
+                break;
+            case e = "Space":
+                novaSmer = "stop";
+                break;
+        }
+    }
+
+    var polje = level(0).split("");
+    var Lx = 0;
+    var Ly = 0;
+    var vrstica = 0;
+    var stolpec = 0;
+
+    for (var i = 0; i < 30; i++) {
+        pravilnaPot.push([]);
+        pravilnaPotFootprint.push([]);
+        for (var j = 0; j < 40; j++) {
+            if (polje[(vrstica * 40) + stolpec] == "X") {
+                c.fillStyle = 'rgba(25, 25, 166,1)';
+                c.fillRect(Lx, Ly, 20, 20);
+            }
+            else if (polje[(vrstica * 40) + stolpec] == "0") {
+                powerUps.push([]);
+                powerUps[powerUps.length - 1].push([
+                    i, j
+                ]);
+
+                pravilnaPot[i].push(j);
+                c.strokeStyle = 'rgba(255, 255, 0, 1)';
+                c.fillStyle = 'rgba(255, 255, 0, 1)';
+                c.beginPath();
+                c.arc(Lx + 10, Ly + 10, 3, 0, 2 * Math.PI);
+                c.stroke();
+            }
+            else {
+                pravilnaPot[i].push(j);
+                c.strokeStyle = 'rgba(255, 255, 0, 1)';
+                c.fillStyle = 'rgba(255, 255, 0, 1)';
+                c.beginPath();
+                c.arc(Lx + 10, Ly + 10, 1, 0, 2 * Math.PI);
+                c.stroke();
+            }
+
+            Lx += 20;
+            stolpec++;
+        }
+        stolpec = 0;
+        vrstica++;
+        Lx = 0;
+        Ly += 20;
+    }
+
+    console.log(powerUps[0][0]);
+
+    spawnEnemy();
+    function spawnEnemy() {
+        ghosts[0][0] = pravilnaPot[14][14] * 20;
+        ghosts[0][1] = 14 * 20;
+        ghosts[0][2] = "";
+        ghosts[0][3] = pravilnaPot[14][14] * 20;
+        ghosts[0][4] = 14 * 20;
+        ghosts[0][5] = 0;
+        ghosts[0][6] = "blue";
+        ghosts[0][7] = new Image();
+        ghosts[0][8] = 0; //number of tics
+
+        ghosts[1][0] = pravilnaPot[14][6] * 20;
+        ghosts[1][1] = 6 * 20;
+        ghosts[1][2] = "";
+        ghosts[1][3] = pravilnaPot[14][6] * 20;
+        ghosts[1][4] = 6 * 20;
+        ghosts[1][5] = 0;
+        ghosts[1][6] = "purple";
+        ghosts[1][7] = new Image();
+        ghosts[1][8] = 0;
+
+        ghosts[2][0] = pravilnaPot[14][10] * 20;
+        ghosts[2][1] = 10 * 20;
+        ghosts[2][2] = "";
+        ghosts[2][3] = pravilnaPot[14][10] * 20;
+        ghosts[2][4] = 10 * 20;
+        ghosts[2][5] = 0;
+        ghosts[2][6] = "orange";
+        ghosts[2][7] = new Image();
+        ghosts[2][8] = 0;
+
+        ghosts[3][0] = pravilnaPot[3][10] * 20;
+        ghosts[3][1] = 10 * 20;
+        ghosts[3][2] = "";
+        ghosts[3][3] = pravilnaPot[3][10] * 20;
+        ghosts[3][4] = 10 * 20;
+        ghosts[3][5] = 0;
+        ghosts[3][6] = "red";
+        ghosts[3][7] = new Image();
+        ghosts[3][8] = 0;
+
+        c.fillStyle = 'rgba(255,0,00,1)';
+
+        for (var i = 0; i < ghosts.length; i++) {
+            ghostImg.src = "img/ghost_" + ghosts[i][6] + "_01_" + ghosts[i][2] + ".png";
+            c.drawImage(ghostImg, ghosts[i][0], ghosts[i][1], 20, 20);
+        }
+
+
+    }
+    function moveEnemy() {
+
+        for (var i = 0; i < ghosts.length; i++) {
+            c.clearRect(ghosts[i][0], ghosts[i][1], 20, 20);
+            if (ghosts[i][5]) {
+                score += 200;
+                ghosts[i][5] = 0;
+                ghosts[i][0] = pravilnaPot[14][14] * 20;
+                ghosts[i][1] = 14 * 20;
+            }
+            var randomDirection = "";
+            var changeDirection = "";
+            var enemyPremove = "";
+
+            if (!checkEnemyDirection(ghosts[i][2], ghosts[i][0], ghosts[i][1]) && ghosts[i][0] % 20 == 0 && ghosts[i][1] % 20 == 0) {
+                hasChanged = false;
+                var randomDirectionIndex = Math.floor(Math.random() * (3 - 0 + 1)) + 0;
+                randomDirection = availibleDirections[randomDirectionIndex];
+                while (randomDirection == ghosts[i][2] || randomDirection == getOpositeDirection(ghosts[i][2])) {
+                    randomDirection = availibleDirections[Math.floor(Math.random() * (3 - 0 + 1)) + 0];
+                }
+            }
+            else {
+                var a = checkOtherWays(ghosts[i][0], ghosts[i][1], ghosts[i][2]);
+                if (a && !hasChanged && ghosts[i][0] % 20 == 0 && ghosts[i][1] % 20 == 0) {
+
+                    hasChanged = true;
+                    randomDirection = a;
+                }
+                else {
+                    randomDirection = ghosts[i][2];
+                }
+            }
+
+            var noviKoordinati = changeEnemyCoordinates(randomDirection, ghosts[i][0], ghosts[i][1]);
+            ghosts[i][2] = randomDirection;
+            console.log(noviKoordinati[0], noviKoordinati[1]);
+
+
+            if (noviKoordinati[0] % 20 == 0 && noviKoordinati[1] % 20 == 0) {
+                if (!pravilnaPotFootprint[ghosts[i][4] / 20].includes(ghosts[i][3] / 20)) {
+                    c.fillStyle = 'rgba(255, 255, 0,1)';
+                    c.beginPath();
+                    var changed = 0;
+                    for (var j = 0; j < powerUps.length; j++) {
+                        if (powerUps[j][0][1] * 20 == ghosts[i][3] && powerUps[j][0][0] * 20 == ghosts[i][4]) {
+                            changed = 1;
+                        }
+                    }
+                    if (changed) {
+                        c.arc(ghosts[i][3] + 10, ghosts[i][4] + 10, 3, 0, 2 * Math.PI);
+                        c.stroke();
+                    }
+                    else {
+                        c.arc(ghosts[i][3] + 10, ghosts[i][4] + 10, 1, 0, 2 * Math.PI);
+                        c.stroke();
+                    }
+                }
+                ghosts[i][3] = noviKoordinati[0];
+                ghosts[i][4] = noviKoordinati[1];
+            }
+            checkColisionWithPlayer(noviKoordinati[0], noviKoordinati[1], i);
+
+            ghosts[i][0] = noviKoordinati[0];
+            ghosts[i][1] = noviKoordinati[1];
+
+            if (invincibility) {
+                if (ghosts[i][8] > 5) {
+                    if (ghosts[i][7].src.includes('img/ghost_dead_1')) {
+                        ghosts[i][7].src = "img/ghost_dead_0.png";
+                    }
+                    else {
+                        ghosts[i][7].src = "img/ghost_dead_1.png";
+
+                    }
+                    ghosts[i][8] = 0;
+                }
+
+                ghosts[i][8]++;
+                c.drawImage(ghosts[i][7], ghosts[i][0], ghosts[i][1], 20, 20);
+            }
+            else {
+
+                if (ghosts[i][8] > 5) {
+                    if (ghosts[i][7].src.includes('_01_')) {
+                        ghosts[i][7].src = "img/ghost_" + ghosts[i][6] + "_02_" + ghosts[i][2] + ".png";
+                    }
+                    else {
+                        ghosts[i][7].src = "img/ghost_" + ghosts[i][6] + "_01_" + ghosts[i][2] + ".png";
+                    }
+                    ghosts[i][8] = 0;
+                }
+              
+                ghosts[i][8]++;
+                c.drawImage(ghosts[i][7], ghosts[i][0], ghosts[i][1], 20, 20);
+
+            }
+            //c.fillRect(ghosts[i][0], ghosts[i][1], 20, 20);
+        }
+    }
+    function checkColisionWithPlayer(Ex, Ey, id) {
+        if (Ex - Px < 20 && Ex - Px > -20 && Ey - Py < 20 && Ey - Py > -20) {
+            if (invincibility) {
+
+                ghosts[id][5] = 1;
+            }
+            else {
+                gameEnd = 1;
+
+            }
+
+        }
+    }
+
+    function checkEnemyDirection(EnemyDirection, Ex, Ey) {
+        if (EnemyDirection == "up") {
+            if (pravilnaPot[Math.floor((Ey - 1) / 20)].includes(Math.floor(Ex / 20)) && pravilnaPot[Math.floor((Ey - 1) / 20)].includes(Math.floor((Ex + 19) / 20))) {
+                return true;
+
+            }
+        }
+        else if (EnemyDirection == "down") {
+            if (pravilnaPot[Math.floor((Ey + 20) / 20)].includes(Math.floor(Ex / 20)) && pravilnaPot[Math.floor((Ey + 20) / 20)].includes(Math.floor((Ex + 19) / 20))) {
+                return true;
+
+            }
+        }
+        else if (EnemyDirection == "left") {
+            if (pravilnaPot[Math.floor(Ey / 20)].includes(Math.floor((Ex - 1) / 20)) && pravilnaPot[Math.floor((Ey + 19) / 20)].includes(Math.floor((Ex - 1) / 20))) {
+                return true;
+            }
+        }
+        else if (EnemyDirection == "right") {
+            if (pravilnaPot[Math.floor(Ey / 20)].includes(Math.floor((Ex + 20) / 20)) && pravilnaPot[Math.floor((Ey + 19) / 20)].includes(Math.floor((Ex + 20) / 20))) {
+                return true;
+            }
+        }
+    }
+    function checkOtherWays(Ex, Ey, currentDirection) {
+        var howManyWays = 0;
+        var returnDirection = [];
+        if (pravilnaPot[Math.floor((Ey - 1) / 20)].includes(Math.floor(Ex / 20)) && pravilnaPot[Math.floor((Ey - 1) / 20)].includes(Math.floor((Ex + 19) / 20))) {
+            if (currentDirection != "up" || currentDirection != "down") {
+                returnDirection[howManyWays] = "up";
+                howManyWays++;
+            }
+            else {
+                return false;
+            }
+
+        }
+        if (pravilnaPot[Math.floor((Ey + 20) / 20)].includes(Math.floor(Ex / 20)) && pravilnaPot[Math.floor((Ey + 20) / 20)].includes(Math.floor((Ex + 19) / 20))) {
+            if (currentDirection != "up" || currentDirection != "down") {
+                returnDirection[howManyWays] = "down";
+                howManyWays++;
+            }
+            else {
+                returnDirection = false;
+            }
+        }
+        if (pravilnaPot[Math.floor(Ey / 20)].includes(Math.floor((Ex - 1) / 20)) && pravilnaPot[Math.floor((Ey + 19) / 20)].includes(Math.floor((Ex - 1) / 20))) {
+            if (currentDirection != "left" || currentDirection != "right") {
+                returnDirection[howManyWays] = "left";
+                howManyWays++;
+            }
+            else {
+                returnDirection = false;
+            }
+        }
+        if (pravilnaPot[Math.floor(Ey / 20)].includes(Math.floor((Ex + 20) / 20)) && pravilnaPot[Math.floor((Ey + 19) / 20)].includes(Math.floor((Ex + 20) / 20))) {
+            if (currentDirection != "left" || currentDirection != "right") {
+                returnDirection[howManyWays] = "right";
+                howManyWays++;
+            }
+            else {
+                returnDirection = false;
+            }
+        }
+        if (howManyWays >= 3) {
+            var generatedDirection = returnDirection[Math.floor(Math.random() * (returnDirection.length - 0 + 1)) + 0];
+            while (generatedDirection == currentDirection || generatedDirection == getOpositeDirection(currentDirection)) {
+                generatedDirection = returnDirection[Math.floor(Math.random() * (returnDirection.length - 0 + 1)) + 0];
+
+            }
+            return generatedDirection;
+        }
+        else {
+            return false;
+        }
+
+    }
+    function getOpositeDirection(direction) {
+        if (direction == "up") {
+            return "down";
+        }
+        else if (direction == "down") {
+            return "Up";
+        }
+        else if (direction == "left") {
+            return "right";
+        }
+        else if (direction == "right") {
+            return "left";
+        }
+    }
+    function changeEnemyCoordinates(EnemyDirection, Ex, Ey) {
+
+
+        if (EnemyDirection == "up") {
+            if (pravilnaPot[Math.floor((Ey - 1) / 20)].includes(Math.floor(Ex / 20)) && pravilnaPot[Math.floor((Ey - 1) / 20)].includes(Math.floor((Ex + 19) / 20))) {
+                Ey -= 1;
+
+            }
+        }
+        else if (EnemyDirection == "down") {
+            if (pravilnaPot[Math.floor((Ey + 20) / 20)].includes(Math.floor(Ex / 20)) && pravilnaPot[Math.floor((Ey + 20) / 20)].includes(Math.floor((Ex + 19) / 20))) {
+                Ey += 1;
+
+            }
+        }
+        else if (EnemyDirection == "left") {
+            if (pravilnaPot[Math.floor(Ey / 20)].includes(Math.floor((Ex - 1) / 20)) && pravilnaPot[Math.floor((Ey + 19) / 20)].includes(Math.floor((Ex - 1) / 20))) {
+                Ex -= 1;
+
+            }
+        }
+        else if (EnemyDirection == "right") {
+            if (pravilnaPot[Math.floor(Ey / 20)].includes(Math.floor((Ex + 20) / 20)) && pravilnaPot[Math.floor((Ey + 19) / 20)].includes(Math.floor((Ex + 20) / 20))) {
+                Ex += 1;
+
+            }
+        }
+        return [Ex, Ey];
+    }
+
+
+    function checkInvinsibility() {
+        if (Date.now() - startOfInvincibility > invincibilityTime * 1000) {
+
+            invincibility = 0;
+        }
+    }
+    function animate() {
+        setTimeout(function () {
+            if (!gameEnd) {
+                requestAnimationFrame(animate);
+                c.clearRect(Px, Py, 20, 20);
+                moveEnemy();
+                if (Px % 20 == 0 && Py % 20 == 0) {
+                    if (!pravilnaPotFootprint[Py / 20].includes(Px / 20)) {
+                        pravilnaPotFootprint[Py / 20].push(Px / 20);
+                        var changed = 0;
+                        for (var j = 0; j < powerUps.length; j++) {
+                            if (powerUps[j][0][0] * 20 == Py && powerUps[j][0][1] * 20 == Px) {
+                                changed = 1;
+                            }
+                        }
+                        if (changed) {
+                            score += 100;
+                            invincibility = 1;
+                            startOfInvincibility = Date.now();
+
+                        }
+                        else {
+                            score += 10;
+                        }
+                    }
+
+                    smer = novaSmer;
+                }
+
+                if (smer == "up") {
+                    if (!pravilnaPot[Math.floor((Py - 1) / 20)].includes(Math.floor(Px / 20)) || !pravilnaPot[Math.floor((Py - 1) / 20)].includes(Math.floor((Px + 19) / 20))) {
+                        if (erlierDirection != "" || erlierDirection != smer) {
+                            novaSmer = erlierDirection;
+                        }
+                        else {
+                            erlierDirection = smer;
+                        }
+                    }
+                    else {
+                        Py -= 1;
+                        erlierDirection = smer;
+                    } 
+                }
+                if (smer == "down") {
+                    if (!pravilnaPot[Math.floor((Py + 20) / 20)].includes(Math.floor(Px / 20)) || !pravilnaPot[Math.floor((Py + 20) / 20)].includes(Math.floor((Px + 19) / 20))) {
+
+                        if (erlierDirection != "" || erlierDirection != smer) {
+                            novaSmer = erlierDirection;
+                        }
+                        else {
+                            erlierDirection = smer;
+                        }
+                    }
+                    else {
+                        Py += 1;
+                        erlierDirection = smer;
+                     
+                    }
+                }
+                if (smer == "left") {
+                    if (!pravilnaPot[Math.floor(Py / 20)].includes(Math.floor((Px - 1) / 20)) || !pravilnaPot[Math.floor((Py + 19) / 20)].includes(Math.floor((Px - 1) / 20))) {
+
+                        if (erlierDirection != "" || erlierDirection != smer) {
+                            novaSmer = erlierDirection;
+                        }
+                        else {
+                            erlierDirection = smer;
+                        }
+                    }
+                    else {
+                        ;
+                        Px -= 1;
+                        erlierDirection = smer;
+                     
+                    }
+                }
+                if (smer == "right") {
+                    if (!pravilnaPot[Math.floor(Py / 20)].includes(Math.floor((Px + 20) / 20)) || !pravilnaPot[Math.floor((Py + 19) / 20)].includes(Math.floor((Px + 20) / 20))) {
+
+
+                        if (erlierDirection != "" || erlierDirection != smer) {
+                            novaSmer = erlierDirection;
+                        }
+                        else {
+                            erlierDirection = smer;
+                        }
+                    }
+                    else {
+
+                        Px += 1;
+                        erlierDirection = smer;
+                       
+                    }
+                }
+                else if (smer == "stop") {
+
+                }
+                if (premove == "up") {
+                    if (pravilnaPot[Math.floor((Py - 1) / 20)].includes(Math.floor(Px / 20)) && pravilnaPot[Math.floor((Py - 1) / 20)].includes(Math.floor((Px + 19) / 20))) {
+                        novaSmer = premove;
+                    }
+                }
+                else if (premove == "down") {
+                    if (pravilnaPot[Math.floor((Py + 20) / 20)].includes(Math.floor(Px / 20)) && pravilnaPot[Math.floor((Py + 20) / 20)].includes(Math.floor((Px + 19) / 20))) {
+                        novaSmer = premove;
+                    }
+                }
+                else if (premove == "left") {
+                    if (pravilnaPot[Math.floor(Py / 20)].includes(Math.floor((Px - 1) / 20)) && pravilnaPot[Math.floor((Py + 19) / 20)].includes(Math.floor((Px - 1) / 20))) {
+
+                        novaSmer = premove;
+                    }
+                }
+                else if (premove == "right") {
+                    if (pravilnaPot[Math.floor(Py / 20)].includes(Math.floor((Px + 20) / 20)) && pravilnaPot[Math.floor((Py + 19) / 20)].includes(Math.floor((Px + 20) / 20))) {
+
+                        novaSmer = premove;
+                    }
+                }
+                /* c.drawImage(img, Px, Py,1,1);*/
+                checkInvinsibility();
+                
+                    document.getElementById("score").innerText = score;
+                
+                  
+                
+                console.log(pravilnaPotFootprint);
+                c.fillStyle = 'rgba(0,0,255,1)';
+                if (smer) {
+                    if (numberOfTics > 5) {
+
+                        if (img.src.includes('img/pacman_1')) {
+                            img.src = 'img/pacman_0_' + smer + '.png';
+                        }
+                        else if (img.src.includes('img/pacman_0')) {
+                            img.src = 'img/pacman_1_' + smer + '.png';
+                        }
+                        else {
+                            img.src = 'img/pacman_2_' + smer + '.png';
+                        }
+                        numberOfTics = 0;
+
+                    }
+                }
+                else {
+                    img.src = 'img/pacman_1_left.png';
+                }
+
+                numberOfTics++;
+              
+                c.drawImage(img, Px, Py, 20, 20);
+            }
+            else {
+                document.getElementById("gameEndOverlay").style.display = "block";
+                document.getElementById("scoreEnd").innerText = score;
+
+            }
+        }, 1000 / framesPerSecond);
+    }
+
+    animate();
+
+</script>
+
+</html>
